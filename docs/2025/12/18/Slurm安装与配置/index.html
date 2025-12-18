@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="en">
+
+  <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/purecss@2.0.3/build/pure-min.css" integrity="sha384-cg6SkqEOCV1NbJoCu11+bm0NvBRc8IYLRGXkmNrqUBfTjmMYwNKPWBTIKyw9mHNJ" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://unpkg.com/purecss@2.0.3/build/grids-responsive-min.css">
+  <link rel="stylesheet" href="/assets/styles.css">
+  
+  <script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    TeX: {
+        equationNumbers: {
+            autoNumber: "AMS"
+        }
+    },
+    tex2jax: {
+        inlineMath: [ ['$','$'] ],
+        displayMath: [ ['$$','$$'] ],
+        processEscapes: true,
+    }
+});
+</script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+  <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Slurm双机安装与配置 | kkmonster</title>
+<meta name="generator" content="Jekyll v3.10.0" />
+<meta property="og:title" content="Slurm双机安装与配置" />
+<meta name="author" content="Feng kunjiang" />
+<meta property="og:locale" content="en" />
+<meta name="description" content="使用Slurm将两台工作站组成小HPC" />
+<meta property="og:description" content="使用Slurm将两台工作站组成小HPC" />
+<link rel="canonical" href="https://kunmonster.github.io//2025/12/18/Slurm%E5%AE%89%E8%A3%85%E4%B8%8E%E9%85%8D%E7%BD%AE/" />
+<meta property="og:url" content="https://kunmonster.github.io//2025/12/18/Slurm%E5%AE%89%E8%A3%85%E4%B8%8E%E9%85%8D%E7%BD%AE/" />
+<meta property="og:site_name" content="kkmonster" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-12-18T20:30:00+08:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Slurm双机安装与配置" />
+<meta name="google-site-verification" content="xxxxx" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Feng kunjiang","url":"https://github.com/kunmonster/"},"dateModified":"2025-12-18T20:30:00+08:00","datePublished":"2025-12-18T20:30:00+08:00","description":"使用Slurm将两台工作站组成小HPC","headline":"Slurm双机安装与配置","mainEntityOfPage":{"@type":"WebPage","@id":"https://kunmonster.github.io//2025/12/18/Slurm%E5%AE%89%E8%A3%85%E4%B8%8E%E9%85%8D%E7%BD%AE/"},"url":"https://kunmonster.github.io//2025/12/18/Slurm%E5%AE%89%E8%A3%85%E4%B8%8E%E9%85%8D%E7%BD%AE/"}</script>
+<!-- End Jekyll SEO tag -->
+<link type="application/atom+xml" rel="alternate" href="https://kunmonster.github.io//feed.xml" title="kkmonster" />
+</head>
+
+
+  <body>
+
+    <div class="container pure-g"><div class="sidebar-left pure-u-1 pure-u-md-1-4" style="background-color: rgb(40, 73, 77); color: rgb(255, 255, 255); background-image: url(/bg.jpg);"><header class="masthead">
+  <div class="avatar"><img src="/avatar.jpg" class="avatar-image" alt="Feng kunjiang">
+    </div>
+  <div class="masthead-title">
+    <a href="/" title="Home">kkmonster</a>
+  </div>
+  <div class="masthead-tagline">
+    <small>生命中有万事的可能</small>
+  </div><nav class="navigation">
+    <ul class="navigation-list"><li class="navigation-item">
+        <a onclick="sessionStorage.setItem('forceCheckScroll', 'true')" href="/">Blog</a>
+      </li><li class="navigation-item">
+        <a onclick="sessionStorage.setItem('forceCheckScroll', 'true')" href="/about/">About</a>
+      </li></ul>
+  </nav><div class="social pure-menu pure-menu-horizontal">
+      <ul class="social-icons pure-menu-list">
+      <li class="pure-menu-item">
+          <a class="social-icon pure-menu-link" href="mailto://fengkunjiang@stu.ynu.edu.cn">
+            <i class="fas fa-envelope" title="Email"></i>
+          </a>
+        </li><li class="pure-menu-item">
+          <a class="social-icon pure-menu-link" href="https://github.com/kunmonster">
+            <i class="fab fa-github" title="Github"></i>
+          </a>
+        </li>
+      </ul>
+    </div>
+</header>
+</div>
+
+      <div class="content pure-u-1 pure-u-md-1-2"><main>
+  <article class="post">
+  <h1 class="post-title">Slurm双机安装与配置</h1>
+  <div class="post-meta"><time datetime="2025-12-18T20:30:00+08:00" itemprop="datePublished">18 Dec 2025</time></div>
+
+  <p>使用Slurm将两台工作站组成小HPC</p>
+
+<p>手里有两台工作站，尝试将其使用slurm组成小集群，其中一台机器A，配置较弱，将其作为控制节点，登录节点，轻量计算节点，机器B用作计算节点 (两台机器都是Ubuntu 22.04)</p>
+
+<blockquote>
+  <p>本文仅涉及Slurm安装以及最基础的使用，关于作业空间管理以及计费等功能本篇不涉及</p>
+</blockquote>
+
+<h2 id="安装前准备">安装前准备</h2>
+<hr />
+<h3 id="1-机器间用户一致">1. 机器间用户一致</h3>
+
+<p>保持机器间UID &gt;= 1000的用户UID,GID保持一致，也就是说保持自己创建的用户一致。</p>
+
+<p>使用cat /etc/passwd 确认从1000开始的UID的用户名，GID，SHELL，在机器间保持一致，某个机器没有某个用户直接创建一个就行，但是保证一致</p>
+
+<h3 id="2-节点间时钟同步">2. 节点间时钟同步</h3>
+
+<p>使用chrony保持不同机器间时钟同步</p>
+
+<ul>
+  <li>在两台机器上都安装chrony</li>
+</ul>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="nb">sudo </span>apt-get <span class="nb">install </span>chrony
+
+<span class="c"># chrnoy安装后配置文件在/etc/chrony/</span>
+
+</code></pre></div></div>
+
+<ul>
+  <li>修改master的chrony配置</li>
+</ul>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 将原pool注释</span>
+
+<span class="c"># 例如</span>
+<span class="c">#pool ntp.ubuntu.com        iburst maxsources 4</span>
+<span class="c">#pool 0.ubuntu.pool.ntp.org iburst maxsources 1</span>
+<span class="c">#pool 1.ubuntu.pool.ntp.org iburst maxsources 1</span>
+<span class="c">#pool 2.ubuntu.pool.ntp.org iburst maxsources 2</span>
+
+<span class="c"># 新添加服务器</span>
+pool cn.pool.ntp.org iburst
+
+server ntp.ntsc.ac.cn iburst
+
+<span class="c"># 此设置将master暴露在局域网中,注意ip地址和局域网保持一致</span>
+allow 192.168.1.0/24
+
+</code></pre></div></div>
+
+<ul>
+  <li>修改其他节点的chrony配置</li>
+</ul>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="c"># 同样地将原pool注释掉</span>
+<span class="c">#pool ntp.ubuntu.com        iburst maxsources 4</span>
+<span class="c">#pool 0.ubuntu.pool.ntp.org iburst maxsources 1</span>
+<span class="c">#pool 1.ubuntu.pool.ntp.org iburst maxsources 1</span>
+<span class="c">#pool 2.ubuntu.pool.ntp.org iburst maxsources 2</span>
+
+<span class="c"># 将server指定为master的ip地址，假定地址是192.168.1.1，根据实际情况而定</span>
+server 192.168.1.1 iburst minpoll 4 maxpoll 4
+
+</code></pre></div></div>
+
+<ul>
+  <li>运行chrony并设置开机启动</li>
+</ul>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="nb">sudo </span>systemctl restart chronyd
+<span class="nb">sudo </span>systemctl <span class="nb">enable </span>chronyd 
+
+<span class="c"># 验证同步状态 </span>
+chronyc sources
+
+<span class="c"># 如果chronyc sources验证成功，那么可以开始下一步操作</span>
+</code></pre></div></div>
+
+<h3 id="3-节点间通信-munge">3. 节点间通信: munge</h3>
+
+<p>munge用于节点间通信, 本文选择源码编译安装munge</p>
+
+<ul>
+  <li>为munge创建用户: 用户名和组名都为munge</li>
+</ul>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="c"># 注意munge一定要小写,不然后面munge无法找到munge用户</span>
+<span class="nb">sudo </span>useradd <span class="nt">-s</span> /sbin/nologin <span class="nt">-Uu</span> 1001 munge
+
+</code></pre></div></div>
+
+<ul>
+  <li>创建munge需要的目录，注意这些目录所有者都需要改成munge</li>
+</ul>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">mkdir</span> <span class="nt">-p</span> /var/log/munge
+<span class="nb">mkdir</span> <span class="nt">-p</span> /var/run/munge
+<span class="nb">mkdir</span> <span class="nt">-p</span> /etc/munge
+
+<span class="nb">sudo chown </span>munge:munge /var/log/munge
+<span class="nb">sudo chown </span>munge:munge /var/run/munge
+<span class="nb">sudo chown </span>munge:munge /etc/munge
+</code></pre></div></div>
+
+<ul>
+  <li>编译安装</li>
+</ul>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+   git clone https://github.com/dun/munge.git
+   
+   <span class="nb">cd </span>munge
+   ./bootstrap
+   ./configure <span class="se">\</span>
+     <span class="nt">--prefix</span><span class="o">=</span>/usr <span class="se">\</span>
+     <span class="nt">--sysconfdir</span><span class="o">=</span>/etc <span class="se">\</span>
+     <span class="nt">--localstatedir</span><span class="o">=</span>/var <span class="se">\</span>
+     <span class="nt">--runstatedir</span><span class="o">=</span>/run
+   make
+   make check
+   <span class="nb">sudo </span>make <span class="nb">install</span>
+   
+</code></pre></div></div>
+
+<ul>
+  <li>生成密钥</li>
+</ul>
+
+<p>注意密钥只能在master节点生成，生成后下发至其他机器，并且保证只有munge用户<strong><em>可读</em></strong></p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="nb">sudo</span> /usr/sbin/mungekey
+<span class="c"># 密钥生成在/etc/munge/munge.key中</span>
+
+<span class="c"># 修改密钥所属和权限</span>
+<span class="nb">sudo chown </span>munge:munge /etc/munge/munge.key 
+<span class="nb">sudo chmod </span>400 /etc/munge/munge.key
+
+<span class="c"># 下发密钥</span>
+<span class="nb">sudo </span>scp /etc/munge/munge.key 其他节点_USERNAME@Hostname:/etc/munge/
+
+
+
+</code></pre></div></div>
+
+<ul>
+  <li>启动munge服务</li>
+</ul>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="c"># 启动并设置systemd</span>
+<span class="nb">sudo </span>systemctl <span class="nb">enable </span>munge 
+<span class="nb">sudo </span>systemctl start munge
+</code></pre></div></div>
+
+<h2 id="安装slurm">安装Slurm</h2>
+<hr />
+
+<h3 id="slurm用户创建">Slurm用户创建</h3>
+
+<p>slurm也需要一个单独的用户, 需要日志目录等</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="nb">sudo </span>useradd <span class="nt">-s</span> /sbin/nologin <span class="nt">-Uu</span> 1002 slurm
+
+<span class="c"># 配置文件存放目录</span>
+<span class="nb">sudo mkdir</span> <span class="nt">-p</span> /etc/slurm/
+
+<span class="c"># 存放 PID 文件和节点状态（State）文件</span>
+<span class="nb">sudo mkdir</span> <span class="nt">-p</span> /var/log/slurm 
+ 
+<span class="c"># Master/Slurmctld 专用 ， 只有master节点需要该目录</span>
+<span class="nb">sudo mkdir</span> <span class="nt">-p</span> /var/spool/slurm/ctld
+
+<span class="c"># Worker/Slurmd 专用，只有计算节点需要这个目录</span>
+<span class="nb">sudo mkdir</span> <span class="nt">-p</span>  /var/spool/slurm/d 
+
+<span class="c"># 依旧改变归属</span>
+<span class="nb">sudo chown</span> <span class="nt">-R</span> slurm:slurm /var/log/slurm 
+<span class="nb">sudo chown</span> <span class="nt">-R</span> slurm:slurm /var/spool/slurm
+
+</code></pre></div></div>
+
+<h3 id="slurm本体安装">Slurm本体安装</h3>
+
+<p>本文通过源码编译安装</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="c"># 依赖安装</span>
+apt-get <span class="nb">install </span>build-essential fakeroot devscripts equivs
+
+<span class="c"># 下载</span>
+<span class="c"># slurm-25.11.1.tar.bz2</span>
+wget https://download.schedmd.com/slurm/slurm-25.11.1.tar.bz2 
+<span class="nb">tar</span> <span class="nt">-axf</span> slurm-25.11.1.tar.bz2
+<span class="nb">cd </span>slurm-25.11.1
+
+<span class="c"># 配置</span>
+./configure <span class="se">\</span>
+    <span class="nt">--prefix</span><span class="o">=</span>/usr <span class="se">\ </span><span class="c"># 指定安装路径</span>
+    <span class="nt">--sysconfdir</span><span class="o">=</span>/etc/slurm <span class="se">\ </span><span class="c"># 指定配置文件目录</span>
+    <span class="nt">--enable-debug</span> <span class="se">\</span>
+    <span class="nt">--with-munge</span> <span class="se">\</span>
+    <span class="nt">--enable-pam</span> <span class="se">\</span>
+    <span class="nt">--with-shared-lib</span>
+    
+<span class="c"># 编译，安装</span>
+<span class="c"># 二进制文件将安装到/usr/sbin</span>
+
+<span class="nb">sudo </span>make <span class="si">$(</span><span class="nb">nproc</span><span class="si">)</span>
+<span class="nb">sudo </span>make <span class="nb">install</span>
+
+<span class="c"># 将system服务复制到/etc/systemd/system/中</span>
+<span class="c"># 控制节点需要复制 </span>
+<span class="nb">sudo cp </span>slurm-25.11.1/etc/slurmctld.service /etc/systemd/system/
+<span class="c"># 本文中控制节点也是计算节点，所以还需要复制</span>
+<span class="nb">sudo cp </span>slurm-25.11.1/etc/slurmd.service /etc/systemd/system/
+
+<span class="o">==============================================================</span>
+
+<span class="c"># 计算节点仅需要复制</span>
+<span class="nb">sudo cp </span>slurm-25.11.1/etc/slurmd.service /etc/systemd/system/
+
+</code></pre></div></div>
+
+<ul>
+  <li>master节点 slurm配置编写</li>
+</ul>
+
+<p>本文示例仅写最基础的配置，保证其能运行即可</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="c"># 集群名字</span>
+<span class="nv">ClusterName</span><span class="o">=</span>your_HPC_name
+
+<span class="c"># 创建的 slurm 专用用户,这里就是slurm</span>
+<span class="nv">SlurmUser</span><span class="o">=</span>slurm  
+
+<span class="c"># 重要！！！指定master的host名         </span>
+<span class="nv">SlurmctldHost</span><span class="o">=</span>master_host
+
+<span class="c"># 控制器端口</span>
+<span class="nv">SlurmctldPort</span><span class="o">=</span>6817        
+
+<span class="o">=======================================================================</span>
+<span class="c"># FILE PATHS AND LOGGING</span>
+<span class="c"># Slurmctld 状态文件位置 (仅 Master 节点需要)</span>
+<span class="nv">StateSaveLocation</span><span class="o">=</span>/var/spool/slurm/ctld
+
+<span class="c"># Slurmd 状态文件位置 (Master 和 Worker 都需要)</span>
+<span class="nv">SlurmdSpoolDir</span><span class="o">=</span>/var/spool/slurm/d
+
+<span class="o">=======================================================================</span>
+<span class="c"># 日志文件路径</span>
+
+<span class="c"># 仅master节点需要</span>
+<span class="nv">SlurmctldLogFile</span><span class="o">=</span>/var/log/slurm/slurmctld.log
+
+
+<span class="c"># 仅计算节点需要</span>
+<span class="nv">SlurmdLogFile</span><span class="o">=</span>/var/log/slurm/slurmd.log
+
+<span class="o">=======================================================================</span>
+<span class="c"># SECURITY AND AUTHENTICATION</span>
+<span class="c"># 启用 MUNGE 认证 (已确认工作正常)</span>
+<span class="nv">AuthType</span><span class="o">=</span>auth/munge       
+
+
+<span class="c"># ------------------------------------------------------------------</span>
+<span class="c"># NODE CONFIGURATION (定义所有物理节点)</span>
+<span class="c"># ------------------------------------------------------------------</span>
+<span class="c"># Master Node: Machine A</span>
+<span class="c"># 后面是填配置信息</span>
+<span class="nv">NodeName</span><span class="o">=</span>master_host <span class="nv">Sockets</span><span class="o">=</span>2 <span class="nv">CoresPerSocket</span><span class="o">=</span>12 <span class="nv">ThreadsPerCore</span><span class="o">=</span>2 <span class="nv">RealMemory</span><span class="o">=</span>61440 <span class="nv">CoreSpecCount</span><span class="o">=</span>8 <span class="nv">State</span><span class="o">=</span>UNKNOWN
+
+
+<span class="c"># Worker Node: Machine B</span>
+<span class="nv">NodeName</span><span class="o">=</span>worker_host <span class="nv">Sockets</span><span class="o">=</span>2 <span class="nv">CoresPerSocket</span><span class="o">=</span>18 <span class="nv">ThreadsPerCore</span><span class="o">=</span>2 <span class="nv">RealMemory</span><span class="o">=</span>124668 <span class="nv">State</span><span class="o">=</span>UNKNOWN
+
+<span class="c"># ------------------------------------------------------------------</span>
+<span class="c"># PARTITION CONFIGURATION (定义队列)</span>
+<span class="c"># ------------------------------------------------------------------</span>
+<span class="nv">PartitionName</span><span class="o">=</span>debug <span class="nv">Nodes</span><span class="o">=</span>master_host,worker_host  <span class="nv">Default</span><span class="o">=</span>YES <span class="nv">MaxTime</span><span class="o">=</span>INFINITE <span class="nv">State</span><span class="o">=</span>UP
+
+</code></pre></div></div>
+
+<ul>
+  <li>在master和计算节点分别完成安装以及配置文件填写后，直接在两个节点分别运行</li>
+</ul>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="o">======</span>master节点<span class="o">========</span>
+
+<span class="nb">sudo </span>systemctl daemon-reload
+<span class="nb">sudo </span>systemctl start slurmd
+<span class="nb">sudo </span>systemctl start slurmctld
+
+
+<span class="o">======</span>worker节点<span class="o">========</span>
+
+<span class="nb">sudo </span>systemctl daemon-reload
+<span class="nb">sudo </span>systemctl start slurmd
+
+
+<span class="o">======</span>测试<span class="o">======</span>
+
+<span class="c"># 查看所有节点是否为idle状态</span>
+sinfo
+
+<span class="c"># 至此已经安装完成</span>
+
+</code></pre></div></div>
+
+<h3 id="特别注意">特别注意</h3>
+<hr />
+
+<p>在slurm配置文件中SlurmctldHost=master_host表示master的host名，所以还需要在每台机器上定义host映射</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="nb">sudo cat</span> <span class="s2">"192.168.1.1 master_host"</span> <span class="o">&gt;&gt;</span> /etc/hosts
+
+<span class="nb">sudo cat</span> <span class="s2">"192.168.1.100 worker_host"</span> <span class="o">&gt;&gt;</span> /etc/hosts
+
+</code></pre></div></div>
+
+<h2 id="测试">测试</h2>
+<hr />
+
+<p>至此slurm基本安装完成，可以完成最基本调用</p>
+
+<p>写个简单的测试脚本</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="c">#!/bin/bash</span>
+<span class="c">#SBATCH --job-name=WorkerTest</span>
+<span class="c">#SBATCH --output=worker_test_output.txt</span>
+<span class="c">#SBATCH --error=worker_test_error.txt</span>
+<span class="c">#SBATCH --ntasks=1</span>
+<span class="c">#SBATCH --cpus-per-task=1</span>
+<span class="c">#SBATCH --time=00:01:00</span>
+
+<span class="c"># ----------------------------------------------------</span>
+<span class="c"># 测试不同节点</span>
+<span class="c"># ----------------------------------------------------</span>
+<span class="c">#SBATCH --nodelist=master_host 或者worker_host </span>
+
+<span class="c"># 打印主机名，确认作业确实在 kkmonster 上执行</span>
+<span class="nb">echo</span> <span class="s2">"Hello! This job is running on node: </span><span class="si">$(</span><span class="nb">hostname</span><span class="si">)</span><span class="s2">"</span>
+
+<span class="c"># 打印一些环境变量</span>
+<span class="nb">echo</span> <span class="s2">"SLURM_JOB_NODELIST: </span><span class="k">${</span><span class="nv">SLURM_JOB_NODELIST</span><span class="k">}</span><span class="s2">"</span>
+<span class="nb">echo</span> <span class="s2">"SLURM_JOB_ID: </span><span class="k">${</span><span class="nv">SLURM_JOB_ID</span><span class="k">}</span><span class="s2">"</span>
+
+<span class="c"># 暂停 5 秒，以便您有时间在 squeue 中看到它</span>
+<span class="nb">sleep </span>5
+
+
+</code></pre></div></div>
+
+<p><a href="https://doc.slurm.cn/quickstart.html">slurm 中文文档 </a></p>
+
+
+
+  
+    
+      <div class="post-tags-section">
+  <i class="post-tags-icon fas fa-tags"></i>
+  <ul class="post-tags"><li>
+        <a class="post-tag" href="/tags/#hpc">hpc</a></li><li>
+        <a class="post-tag" href="/tags/#slurm">slurm</a></li></ul>
+</div>
+
+  
+
+  
+</article>
+
+
+<aside class="related">
+  <h2>Related posts</h2>
+  <ul class="related-posts">
+    
+      <li>
+        <a href="/2025/11/05/Pangenome%E5%AD%A6%E4%B9%A0-A_gentle_introduction_to_pangenomics/">
+          Pangenome学习：A gentle introduction to pangenomics
+          <small><time datetime="2025-11-05T16:00:00+08:00">05 Nov 2025</time></small>
+        </a>
+      </li>
+    
+      <li>
+        <a href="/2025/09/14/CSV-Filter%E6%95%B0%E6%8D%AE%E5%87%86%E5%A4%87%E8%A7%A3%E8%AF%BB/">
+          CSV-Filter数据准备解读
+          <small><time datetime="2025-09-14T21:20:00+08:00">14 Sep 2025</time></small>
+        </a>
+      </li>
+    
+      <li>
+        <a href="/2025/04/14/Circos_draw_histogram/">
+          使用circos画变异分布直方图
+          <small><time datetime="2025-04-14T22:00:00+08:00">14 Apr 2025</time></small>
+        </a>
+      </li>
+    
+  </ul>
+</aside>
+
+
+</main>
+
+<footer class="footer"><small>
+    &copy; 2023&nbsp;-&nbsp;2025 <a href="https://github.com/kunmonster/">Feng kunjiang</a>. All rights reserved.
+  </small>
+</footer>
+</div>
+      <div class="sidebar-right pure-u-1 pure-u-md-1-4">
+<div  class="toc-wrapper">
+  <h2 class="toc-title">Table of Contents</h2>
+    <nav class="toc-nav">
+      <ul class="toc">
+  <li><a href="#安装前准备">安装前准备</a>
+    <ul>
+      <li><a href="#1-机器间用户一致">1. 机器间用户一致</a></li>
+      <li><a href="#2-节点间时钟同步">2. 节点间时钟同步</a></li>
+      <li><a href="#3-节点间通信-munge">3. 节点间通信: munge</a></li>
+    </ul>
+  </li>
+  <li><a href="#安装slurm">安装Slurm</a>
+    <ul>
+      <li><a href="#slurm用户创建">Slurm用户创建</a></li>
+      <li><a href="#slurm本体安装">Slurm本体安装</a></li>
+      <li><a href="#特别注意">特别注意</a></li>
+    </ul>
+  </li>
+  <li><a href="#测试">测试</a></li>
+</ul>
+
+  </nav>
+</div>
+
+</div>
+    </div>
+
+    <script async src="https://use.fontawesome.com/releases/v5.0.12/js/all.js"></script><script>
+  function strip(str, remove) {
+    while (str.length > 0 && remove.indexOf(str.charAt(0)) != -1) {
+      str = str.substr(1);
+    }
+    while (str.length > 0 && remove.indexOf(str.charAt(str.length - 1)) != -1) {
+      str = str.substr(0, str.length - 1);
+    }
+    return str;
+  }
+
+  function scroll() {
+    console.log('scroll');
+    window.scrollTo({
+      left: 0, 
+      top: window.innerHeight,
+      behavior: 'smooth'
+    });
+    sessionStorage.removeItem('forceCheckScroll');
+  }
+
+  const forceCheckScroll = sessionStorage.getItem('forceCheckScroll') === 'true';
+  const checkScroll = strip(window.location.pathname, '/') !== strip('', '/');
+
+  if (forceCheckScroll || checkScroll) {
+    const maxWidth = "(max-width: 48rem)";
+    const result = window.matchMedia(maxWidth);
+    if (result.matches) {
+      scroll();
+    } else {
+      result.addListener((match) => {
+        if (match.media == maxWidth) {
+          if (match.matches) {
+            scroll();
+          }
+        }
+      });
+    }
+  }
+</script>
+</body>
+</html>

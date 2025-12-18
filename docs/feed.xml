@@ -1,4 +1,369 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en"><generator uri="https://jekyllrb.com/" version="3.10.0">Jekyll</generator><link href="https://kunmonster.github.io//feed.xml" rel="self" type="application/atom+xml" /><link href="https://kunmonster.github.io//" rel="alternate" type="text/html" hreflang="en" /><updated>2025-11-05T16:08:01+08:00</updated><id>https://kunmonster.github.io//feed.xml</id><title type="html">kkmonster</title><subtitle>生命中有万事的可能</subtitle><author><name>Feng kunjiang</name><email>fkj_monster@163.com</email></author><entry><title type="html">Pangenome学习：A gentle introduction to pangenomics</title><link href="https://kunmonster.github.io//2025/11/05/Pangenome%E5%AD%A6%E4%B9%A0-A_gentle_introduction_to_pangenomics/" rel="alternate" type="text/html" title="Pangenome学习：A gentle introduction to pangenomics" /><published>2025-11-05T16:00:00+08:00</published><updated>2025-11-05T16:00:00+08:00</updated><id>https://kunmonster.github.io//2025/11/05/Pangenome%E5%AD%A6%E4%B9%A0:A_gentle_introduction_to_pangenomics</id><content type="html" xml:base="https://kunmonster.github.io//2025/11/05/Pangenome%E5%AD%A6%E4%B9%A0-A_gentle_introduction_to_pangenomics/"><![CDATA[<p>学习泛基因组的基本概念以及构建方法</p>
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en"><generator uri="https://jekyllrb.com/" version="3.10.0">Jekyll</generator><link href="https://kunmonster.github.io//feed.xml" rel="self" type="application/atom+xml" /><link href="https://kunmonster.github.io//" rel="alternate" type="text/html" hreflang="en" /><updated>2025-12-18T20:30:40+08:00</updated><id>https://kunmonster.github.io//feed.xml</id><title type="html">kkmonster</title><subtitle>生命中有万事的可能</subtitle><author><name>Feng kunjiang</name><email>fkj_monster@163.com</email></author><entry><title type="html">Slurm双机安装与配置</title><link href="https://kunmonster.github.io//2025/12/18/Slurm%E5%AE%89%E8%A3%85%E4%B8%8E%E9%85%8D%E7%BD%AE/" rel="alternate" type="text/html" title="Slurm双机安装与配置" /><published>2025-12-18T20:30:00+08:00</published><updated>2025-12-18T20:30:00+08:00</updated><id>https://kunmonster.github.io//2025/12/18/Slurm%E5%AE%89%E8%A3%85%E4%B8%8E%E9%85%8D%E7%BD%AE</id><content type="html" xml:base="https://kunmonster.github.io//2025/12/18/Slurm%E5%AE%89%E8%A3%85%E4%B8%8E%E9%85%8D%E7%BD%AE/"><![CDATA[<p>使用Slurm将两台工作站组成小HPC</p>
+
+<p>手里有两台工作站，尝试将其使用slurm组成小集群，其中一台机器A，配置较弱，将其作为控制节点，登录节点，轻量计算节点，机器B用作计算节点 (两台机器都是Ubuntu 22.04)</p>
+
+<blockquote>
+  <p>本文仅涉及Slurm安装以及最基础的使用，关于作业空间管理以及计费等功能本篇不涉及</p>
+</blockquote>
+
+<h2 id="安装前准备">安装前准备</h2>
+<hr />
+<h3 id="1-机器间用户一致">1. 机器间用户一致</h3>
+
+<p>保持机器间UID &gt;= 1000的用户UID,GID保持一致，也就是说保持自己创建的用户一致。</p>
+
+<p>使用cat /etc/passwd 确认从1000开始的UID的用户名，GID，SHELL，在机器间保持一致，某个机器没有某个用户直接创建一个就行，但是保证一致</p>
+
+<h3 id="2-节点间时钟同步">2. 节点间时钟同步</h3>
+
+<p>使用chrony保持不同机器间时钟同步</p>
+
+<ul>
+  <li>在两台机器上都安装chrony</li>
+</ul>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="nb">sudo </span>apt-get <span class="nb">install </span>chrony
+
+<span class="c"># chrnoy安装后配置文件在/etc/chrony/</span>
+
+</code></pre></div></div>
+
+<ul>
+  <li>修改master的chrony配置</li>
+</ul>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 将原pool注释</span>
+
+<span class="c"># 例如</span>
+<span class="c">#pool ntp.ubuntu.com        iburst maxsources 4</span>
+<span class="c">#pool 0.ubuntu.pool.ntp.org iburst maxsources 1</span>
+<span class="c">#pool 1.ubuntu.pool.ntp.org iburst maxsources 1</span>
+<span class="c">#pool 2.ubuntu.pool.ntp.org iburst maxsources 2</span>
+
+<span class="c"># 新添加服务器</span>
+pool cn.pool.ntp.org iburst
+
+server ntp.ntsc.ac.cn iburst
+
+<span class="c"># 此设置将master暴露在局域网中,注意ip地址和局域网保持一致</span>
+allow 192.168.1.0/24
+
+</code></pre></div></div>
+
+<ul>
+  <li>修改其他节点的chrony配置</li>
+</ul>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="c"># 同样地将原pool注释掉</span>
+<span class="c">#pool ntp.ubuntu.com        iburst maxsources 4</span>
+<span class="c">#pool 0.ubuntu.pool.ntp.org iburst maxsources 1</span>
+<span class="c">#pool 1.ubuntu.pool.ntp.org iburst maxsources 1</span>
+<span class="c">#pool 2.ubuntu.pool.ntp.org iburst maxsources 2</span>
+
+<span class="c"># 将server指定为master的ip地址，假定地址是192.168.1.1，根据实际情况而定</span>
+server 192.168.1.1 iburst minpoll 4 maxpoll 4
+
+</code></pre></div></div>
+
+<ul>
+  <li>运行chrony并设置开机启动</li>
+</ul>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="nb">sudo </span>systemctl restart chronyd
+<span class="nb">sudo </span>systemctl <span class="nb">enable </span>chronyd 
+
+<span class="c"># 验证同步状态 </span>
+chronyc sources
+
+<span class="c"># 如果chronyc sources验证成功，那么可以开始下一步操作</span>
+</code></pre></div></div>
+
+<h3 id="3-节点间通信-munge">3. 节点间通信: munge</h3>
+
+<p>munge用于节点间通信, 本文选择源码编译安装munge</p>
+
+<ul>
+  <li>为munge创建用户: 用户名和组名都为munge</li>
+</ul>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="c"># 注意munge一定要小写,不然后面munge无法找到munge用户</span>
+<span class="nb">sudo </span>useradd <span class="nt">-s</span> /sbin/nologin <span class="nt">-Uu</span> 1001 munge
+
+</code></pre></div></div>
+
+<ul>
+  <li>创建munge需要的目录，注意这些目录所有者都需要改成munge</li>
+</ul>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">mkdir</span> <span class="nt">-p</span> /var/log/munge
+<span class="nb">mkdir</span> <span class="nt">-p</span> /var/run/munge
+<span class="nb">mkdir</span> <span class="nt">-p</span> /etc/munge
+
+<span class="nb">sudo chown </span>munge:munge /var/log/munge
+<span class="nb">sudo chown </span>munge:munge /var/run/munge
+<span class="nb">sudo chown </span>munge:munge /etc/munge
+</code></pre></div></div>
+
+<ul>
+  <li>编译安装</li>
+</ul>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+   git clone https://github.com/dun/munge.git
+   
+   <span class="nb">cd </span>munge
+   ./bootstrap
+   ./configure <span class="se">\</span>
+     <span class="nt">--prefix</span><span class="o">=</span>/usr <span class="se">\</span>
+     <span class="nt">--sysconfdir</span><span class="o">=</span>/etc <span class="se">\</span>
+     <span class="nt">--localstatedir</span><span class="o">=</span>/var <span class="se">\</span>
+     <span class="nt">--runstatedir</span><span class="o">=</span>/run
+   make
+   make check
+   <span class="nb">sudo </span>make <span class="nb">install</span>
+   
+</code></pre></div></div>
+
+<ul>
+  <li>生成密钥</li>
+</ul>
+
+<p>注意密钥只能在master节点生成，生成后下发至其他机器，并且保证只有munge用户<strong><em>可读</em></strong></p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="nb">sudo</span> /usr/sbin/mungekey
+<span class="c"># 密钥生成在/etc/munge/munge.key中</span>
+
+<span class="c"># 修改密钥所属和权限</span>
+<span class="nb">sudo chown </span>munge:munge /etc/munge/munge.key 
+<span class="nb">sudo chmod </span>400 /etc/munge/munge.key
+
+<span class="c"># 下发密钥</span>
+<span class="nb">sudo </span>scp /etc/munge/munge.key 其他节点_USERNAME@Hostname:/etc/munge/
+
+
+
+</code></pre></div></div>
+
+<ul>
+  <li>启动munge服务</li>
+</ul>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="c"># 启动并设置systemd</span>
+<span class="nb">sudo </span>systemctl <span class="nb">enable </span>munge 
+<span class="nb">sudo </span>systemctl start munge
+</code></pre></div></div>
+
+<h2 id="安装slurm">安装Slurm</h2>
+<hr />
+
+<h3 id="slurm用户创建">Slurm用户创建</h3>
+
+<p>slurm也需要一个单独的用户, 需要日志目录等</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="nb">sudo </span>useradd <span class="nt">-s</span> /sbin/nologin <span class="nt">-Uu</span> 1002 slurm
+
+<span class="c"># 配置文件存放目录</span>
+<span class="nb">sudo mkdir</span> <span class="nt">-p</span> /etc/slurm/
+
+<span class="c"># 存放 PID 文件和节点状态（State）文件</span>
+<span class="nb">sudo mkdir</span> <span class="nt">-p</span> /var/log/slurm 
+ 
+<span class="c"># Master/Slurmctld 专用 ， 只有master节点需要该目录</span>
+<span class="nb">sudo mkdir</span> <span class="nt">-p</span> /var/spool/slurm/ctld
+
+<span class="c"># Worker/Slurmd 专用，只有计算节点需要这个目录</span>
+<span class="nb">sudo mkdir</span> <span class="nt">-p</span>  /var/spool/slurm/d 
+
+<span class="c"># 依旧改变归属</span>
+<span class="nb">sudo chown</span> <span class="nt">-R</span> slurm:slurm /var/log/slurm 
+<span class="nb">sudo chown</span> <span class="nt">-R</span> slurm:slurm /var/spool/slurm
+
+</code></pre></div></div>
+
+<h3 id="slurm本体安装">Slurm本体安装</h3>
+
+<p>本文通过源码编译安装</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="c"># 依赖安装</span>
+apt-get <span class="nb">install </span>build-essential fakeroot devscripts equivs
+
+<span class="c"># 下载</span>
+<span class="c"># slurm-25.11.1.tar.bz2</span>
+wget https://download.schedmd.com/slurm/slurm-25.11.1.tar.bz2 
+<span class="nb">tar</span> <span class="nt">-axf</span> slurm-25.11.1.tar.bz2
+<span class="nb">cd </span>slurm-25.11.1
+
+<span class="c"># 配置</span>
+./configure <span class="se">\</span>
+    <span class="nt">--prefix</span><span class="o">=</span>/usr <span class="se">\ </span><span class="c"># 指定安装路径</span>
+    <span class="nt">--sysconfdir</span><span class="o">=</span>/etc/slurm <span class="se">\ </span><span class="c"># 指定配置文件目录</span>
+    <span class="nt">--enable-debug</span> <span class="se">\</span>
+    <span class="nt">--with-munge</span> <span class="se">\</span>
+    <span class="nt">--enable-pam</span> <span class="se">\</span>
+    <span class="nt">--with-shared-lib</span>
+    
+<span class="c"># 编译，安装</span>
+<span class="c"># 二进制文件将安装到/usr/sbin</span>
+
+<span class="nb">sudo </span>make <span class="si">$(</span><span class="nb">nproc</span><span class="si">)</span>
+<span class="nb">sudo </span>make <span class="nb">install</span>
+
+<span class="c"># 将system服务复制到/etc/systemd/system/中</span>
+<span class="c"># 控制节点需要复制 </span>
+<span class="nb">sudo cp </span>slurm-25.11.1/etc/slurmctld.service /etc/systemd/system/
+<span class="c"># 本文中控制节点也是计算节点，所以还需要复制</span>
+<span class="nb">sudo cp </span>slurm-25.11.1/etc/slurmd.service /etc/systemd/system/
+
+<span class="o">==============================================================</span>
+
+<span class="c"># 计算节点仅需要复制</span>
+<span class="nb">sudo cp </span>slurm-25.11.1/etc/slurmd.service /etc/systemd/system/
+
+</code></pre></div></div>
+
+<ul>
+  <li>master节点 slurm配置编写</li>
+</ul>
+
+<p>本文示例仅写最基础的配置，保证其能运行即可</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="c"># 集群名字</span>
+<span class="nv">ClusterName</span><span class="o">=</span>your_HPC_name
+
+<span class="c"># 创建的 slurm 专用用户,这里就是slurm</span>
+<span class="nv">SlurmUser</span><span class="o">=</span>slurm  
+
+<span class="c"># 重要！！！指定master的host名         </span>
+<span class="nv">SlurmctldHost</span><span class="o">=</span>master_host
+
+<span class="c"># 控制器端口</span>
+<span class="nv">SlurmctldPort</span><span class="o">=</span>6817        
+
+<span class="o">=======================================================================</span>
+<span class="c"># FILE PATHS AND LOGGING</span>
+<span class="c"># Slurmctld 状态文件位置 (仅 Master 节点需要)</span>
+<span class="nv">StateSaveLocation</span><span class="o">=</span>/var/spool/slurm/ctld
+
+<span class="c"># Slurmd 状态文件位置 (Master 和 Worker 都需要)</span>
+<span class="nv">SlurmdSpoolDir</span><span class="o">=</span>/var/spool/slurm/d
+
+<span class="o">=======================================================================</span>
+<span class="c"># 日志文件路径</span>
+
+<span class="c"># 仅master节点需要</span>
+<span class="nv">SlurmctldLogFile</span><span class="o">=</span>/var/log/slurm/slurmctld.log
+
+
+<span class="c"># 仅计算节点需要</span>
+<span class="nv">SlurmdLogFile</span><span class="o">=</span>/var/log/slurm/slurmd.log
+
+<span class="o">=======================================================================</span>
+<span class="c"># SECURITY AND AUTHENTICATION</span>
+<span class="c"># 启用 MUNGE 认证 (已确认工作正常)</span>
+<span class="nv">AuthType</span><span class="o">=</span>auth/munge       
+
+
+<span class="c"># ------------------------------------------------------------------</span>
+<span class="c"># NODE CONFIGURATION (定义所有物理节点)</span>
+<span class="c"># ------------------------------------------------------------------</span>
+<span class="c"># Master Node: Machine A</span>
+<span class="c"># 后面是填配置信息</span>
+<span class="nv">NodeName</span><span class="o">=</span>master_host <span class="nv">Sockets</span><span class="o">=</span>2 <span class="nv">CoresPerSocket</span><span class="o">=</span>12 <span class="nv">ThreadsPerCore</span><span class="o">=</span>2 <span class="nv">RealMemory</span><span class="o">=</span>61440 <span class="nv">CoreSpecCount</span><span class="o">=</span>8 <span class="nv">State</span><span class="o">=</span>UNKNOWN
+
+
+<span class="c"># Worker Node: Machine B</span>
+<span class="nv">NodeName</span><span class="o">=</span>worker_host <span class="nv">Sockets</span><span class="o">=</span>2 <span class="nv">CoresPerSocket</span><span class="o">=</span>18 <span class="nv">ThreadsPerCore</span><span class="o">=</span>2 <span class="nv">RealMemory</span><span class="o">=</span>124668 <span class="nv">State</span><span class="o">=</span>UNKNOWN
+
+<span class="c"># ------------------------------------------------------------------</span>
+<span class="c"># PARTITION CONFIGURATION (定义队列)</span>
+<span class="c"># ------------------------------------------------------------------</span>
+<span class="nv">PartitionName</span><span class="o">=</span>debug <span class="nv">Nodes</span><span class="o">=</span>master_host,worker_host  <span class="nv">Default</span><span class="o">=</span>YES <span class="nv">MaxTime</span><span class="o">=</span>INFINITE <span class="nv">State</span><span class="o">=</span>UP
+
+</code></pre></div></div>
+
+<ul>
+  <li>在master和计算节点分别完成安装以及配置文件填写后，直接在两个节点分别运行</li>
+</ul>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="o">======</span>master节点<span class="o">========</span>
+
+<span class="nb">sudo </span>systemctl daemon-reload
+<span class="nb">sudo </span>systemctl start slurmd
+<span class="nb">sudo </span>systemctl start slurmctld
+
+
+<span class="o">======</span>worker节点<span class="o">========</span>
+
+<span class="nb">sudo </span>systemctl daemon-reload
+<span class="nb">sudo </span>systemctl start slurmd
+
+
+<span class="o">======</span>测试<span class="o">======</span>
+
+<span class="c"># 查看所有节点是否为idle状态</span>
+sinfo
+
+<span class="c"># 至此已经安装完成</span>
+
+</code></pre></div></div>
+
+<h3 id="特别注意">特别注意</h3>
+<hr />
+
+<p>在slurm配置文件中SlurmctldHost=master_host表示master的host名，所以还需要在每台机器上定义host映射</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="nb">sudo cat</span> <span class="s2">"192.168.1.1 master_host"</span> <span class="o">&gt;&gt;</span> /etc/hosts
+
+<span class="nb">sudo cat</span> <span class="s2">"192.168.1.100 worker_host"</span> <span class="o">&gt;&gt;</span> /etc/hosts
+
+</code></pre></div></div>
+
+<h2 id="测试">测试</h2>
+<hr />
+
+<p>至此slurm基本安装完成，可以完成最基本调用</p>
+
+<p>写个简单的测试脚本</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="c">#!/bin/bash</span>
+<span class="c">#SBATCH --job-name=WorkerTest</span>
+<span class="c">#SBATCH --output=worker_test_output.txt</span>
+<span class="c">#SBATCH --error=worker_test_error.txt</span>
+<span class="c">#SBATCH --ntasks=1</span>
+<span class="c">#SBATCH --cpus-per-task=1</span>
+<span class="c">#SBATCH --time=00:01:00</span>
+
+<span class="c"># ----------------------------------------------------</span>
+<span class="c"># 测试不同节点</span>
+<span class="c"># ----------------------------------------------------</span>
+<span class="c">#SBATCH --nodelist=master_host 或者worker_host </span>
+
+<span class="c"># 打印主机名，确认作业确实在 kkmonster 上执行</span>
+<span class="nb">echo</span> <span class="s2">"Hello! This job is running on node: </span><span class="si">$(</span><span class="nb">hostname</span><span class="si">)</span><span class="s2">"</span>
+
+<span class="c"># 打印一些环境变量</span>
+<span class="nb">echo</span> <span class="s2">"SLURM_JOB_NODELIST: </span><span class="k">${</span><span class="nv">SLURM_JOB_NODELIST</span><span class="k">}</span><span class="s2">"</span>
+<span class="nb">echo</span> <span class="s2">"SLURM_JOB_ID: </span><span class="k">${</span><span class="nv">SLURM_JOB_ID</span><span class="k">}</span><span class="s2">"</span>
+
+<span class="c"># 暂停 5 秒，以便您有时间在 squeue 中看到它</span>
+<span class="nb">sleep </span>5
+
+
+</code></pre></div></div>
+
+<p><a href="https://doc.slurm.cn/quickstart.html">slurm 中文文档 </a></p>]]></content><author><name>Feng kunjiang</name><email>fkj_monster@163.com</email></author><category term="hpc" /><category term="slurm" /><summary type="html"><![CDATA[使用Slurm将两台工作站组成小HPC]]></summary></entry><entry><title type="html">Pangenome学习：A gentle introduction to pangenomics</title><link href="https://kunmonster.github.io//2025/11/05/Pangenome%E5%AD%A6%E4%B9%A0-A_gentle_introduction_to_pangenomics/" rel="alternate" type="text/html" title="Pangenome学习：A gentle introduction to pangenomics" /><published>2025-11-05T16:00:00+08:00</published><updated>2025-11-05T16:00:00+08:00</updated><id>https://kunmonster.github.io//2025/11/05/Pangenome%E5%AD%A6%E4%B9%A0:A_gentle_introduction_to_pangenomics</id><content type="html" xml:base="https://kunmonster.github.io//2025/11/05/Pangenome%E5%AD%A6%E4%B9%A0-A_gentle_introduction_to_pangenomics/"><![CDATA[<p>学习泛基因组的基本概念以及构建方法</p>
 
 <h2 id="definition">Definition</h2>
 
@@ -1756,489 +2121,4 @@ Read1                  Read2
   <li>et</li>
 </ul>
 
-<p>未完………………</p>]]></content><author><name>Feng kunjiang</name><email>fkj_monster@163.com</email></author><category term="bioinformatics" /><category term="sv" /><category term="vcf" /><summary type="html"><![CDATA[结构变异种类 INFO字段: SVTYPE]]></summary></entry><entry><title type="html">Linux 文本处理</title><link href="https://kunmonster.github.io//2023/09/29/%E6%96%87%E6%9C%AC%E5%A4%84%E7%90%86/" rel="alternate" type="text/html" title="Linux 文本处理" /><published>2023-09-29T23:18:00+08:00</published><updated>2023-09-29T23:18:00+08:00</updated><id>https://kunmonster.github.io//2023/09/29/%E6%96%87%E6%9C%AC%E5%A4%84%E7%90%86</id><content type="html" xml:base="https://kunmonster.github.io//2023/09/29/%E6%96%87%E6%9C%AC%E5%A4%84%E7%90%86/"><![CDATA[<h3 id="正则表达式regular-expression">正则表达式(Regular Expression)</h3>
-<hr />
-
-<h4 id="基础正则basic-regular-expressionbasic-regex">基础正则(Basic Regular Expression—–Basic RegEx)</h4>
-
-<p>元字符</p>
-
-<table>
-  <thead>
-    <tr>
-      <th style="text-align: center">字符</th>
-      <th style="text-align: center">作用</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="text-align: center">*</td>
-      <td style="text-align: center">前一个字符任意次</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">.</td>
-      <td style="text-align: center">匹配除了换行符外的任意一个字符</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">^</td>
-      <td style="text-align: center">匹配行首</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">$</td>
-      <td style="text-align: center">匹配行尾</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">[ ]</td>
-      <td style="text-align: center">匹配中括号中的任意一个</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">[^ ]</td>
-      <td style="text-align: center">匹配中括号字符以外的任意一个字符—-相当于—–^[]的意思</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">{n}</td>
-      <td style="text-align: center">表示前面的字符出现n次</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">{n,m}</td>
-      <td style="text-align: center">前一字符最少出现n次最多出现m次</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">{n, }</td>
-      <td style="text-align: center">前一字符最少出现n次</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">{ ,m}</td>
-      <td style="text-align: center">前一字符最多出现m次</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">\</td>
-      <td style="text-align: center">转义字符</td>
-    </tr>
-  </tbody>
-</table>
-
-<h4 id="扩展正则">扩展正则</h4>
-
-<p>元字符</p>
-
-<table>
-  <thead>
-    <tr>
-      <th style="text-align: center">字符</th>
-      <th style="text-align: center">功能</th>
-      <th> </th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="text-align: center">+</td>
-      <td style="text-align: center">前面的字符重复一次或者一次以上</td>
-      <td> </td>
-    </tr>
-    <tr>
-      <td style="text-align: center">?</td>
-      <td style="text-align: center">前面的字符重复一次或者0次</td>
-      <td> </td>
-    </tr>
-    <tr>
-      <td style="text-align: center">|</td>
-      <td style="text-align: center">分支，注意这个符号实在表达式层面上运作，区别于[]运作于字符层面</td>
-      <td> </td>
-    </tr>
-    <tr>
-      <td style="text-align: center">( )</td>
-      <td style="text-align: center">查找组</td>
-      <td> </td>
-    </tr>
-    <tr>
-      <td style="text-align: center">( )+</td>
-      <td style="text-align: center">辨别多个重复组</td>
-      <td> </td>
-    </tr>
-    <tr>
-      <td style="text-align: center">\数字</td>
-      <td style="text-align: center">有多个分组时表明分组顺序，用对应顺序的分组来代替此序号</td>
-      <td> </td>
-    </tr>
-    <tr>
-      <td style="text-align: center">(:? 内容)</td>
-      <td style="text-align: center">非捕获分组，使用序号时，不会计入序号中</td>
-      <td> </td>
-    </tr>
-    <tr>
-      <td style="text-align: center">\w</td>
-      <td style="text-align: center">pu查找字母、数字和下划线</td>
-      <td> </td>
-    </tr>
-    <tr>
-      <td style="text-align: center">\w</td>
-      <td style="text-align: center">匹配除字母、数字、下划线以外的字符（与上面的相反）</td>
-      <td> </td>
-    </tr>
-    <tr>
-      <td style="text-align: center">\d</td>
-      <td style="text-align: center">匹配数字,grep不支持</td>
-      <td> </td>
-    </tr>
-    <tr>
-      <td style="text-align: center">\D</td>
-      <td style="text-align: center">匹配数字以外的字符,grep不支持</td>
-      <td> </td>
-    </tr>
-    <tr>
-      <td style="text-align: center">\s</td>
-      <td style="text-align: center">匹配空白符</td>
-      <td> </td>
-    </tr>
-    <tr>
-      <td style="text-align: center">\S</td>
-      <td style="text-align: center">匹配非空白符</td>
-      <td> </td>
-    </tr>
-    <tr>
-      <td style="text-align: center">xxx(?=条件)</td>
-      <td style="text-align: center">正向先行断言,匹配xxx后面有指定字符的行</td>
-      <td> </td>
-    </tr>
-    <tr>
-      <td style="text-align: center">xxx(?!条件)</td>
-      <td style="text-align: center">负向先行断言,匹配xxx后面没有指定字符的行</td>
-      <td> </td>
-    </tr>
-    <tr>
-      <td style="text-align: center">(?&lt;=条件)xxx</td>
-      <td style="text-align: center">正向后行断言,匹配xxx前面有指定字符的行</td>
-      <td> </td>
-    </tr>
-    <tr>
-      <td style="text-align: center">(?&lt;!条件)xxx</td>
-      <td style="text-align: center">负向后行断言,匹配xxx前面没有指定字符</td>
-      <td> </td>
-    </tr>
-  </tbody>
-</table>
-
-<h3 id="grep">grep</h3>
-<hr />
-<p>命令格式</p>
-
-<ul>
-  <li>grep [option] [PATTERN] [FILE…]</li>
-  <li>如果没有指定FILE那么对当前工作目录搜索</li>
-</ul>
-
-<p>常用选项</p>
-
-<table>
-  <thead>
-    <tr>
-      <th style="text-align: center">选项</th>
-      <th style="text-align: center">功能</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="text-align: center">-E</td>
-      <td style="text-align: center">此选项将使PATTERN支持扩展的正则—等价于—egrep</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-F</td>
-      <td style="text-align: center">将PATTERN理解成字符串而不是正则的表达式</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-i</td>
-      <td style="text-align: center">忽略大小写</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-v</td>
-      <td style="text-align: center">改变输出匹配行，转而输出非匹配行</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-x</td>
-      <td style="text-align: center">只需要整行匹配的行</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-c</td>
-      <td style="text-align: center">统计输出结果的行</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-o</td>
-      <td style="text-align: center">只输出匹配的内容本身</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-w</td>
-      <td style="text-align: center">只匹配过滤的单词</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-n</td>
-      <td style="text-align: center">输出行号</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-H</td>
-      <td style="text-align: center">输出文件名:匹配内容</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-A</td>
-      <td style="text-align: center">显示匹配行的后面的行数</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-B</td>
-      <td style="text-align: center">before,显示匹配行前面的行数</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-C</td>
-      <td style="text-align: center">显示匹配行前面和后面的行数</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">–no-group-separator</td>
-      <td style="text-align: center">使用前面的-A,B,C会在两个匹配行之间使用分隔行，此选项可以取消</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">–group-separator</td>
-      <td style="text-align: center">=’xxxx’指定分隔符号</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-r</td>
-      <td style="text-align: center">递归grep,此时不用指定文件</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-l</td>
-      <td style="text-align: center">只打印文件名，不打印匹配内容</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-R</td>
-      <td style="text-align: center">递归但是不输出符号链接和文件内容</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-L</td>
-      <td style="text-align: center">只打印没被选中行的文件名称</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-z</td>
-      <td style="text-align: center">数据行以0（NULL）结尾而不是换行符</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-Z</td>
-      <td style="text-align: center">在文件名后面打印null</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">–include=GLOB</td>
-      <td style="text-align: center">只查找匹配 GLOB（含通配符的文件模式）的文件</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">–exclude=GLOB</td>
-      <td style="text-align: center">跳过匹配 GLOB 的文件</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">–exclude-dir=GLOB</td>
-      <td style="text-align: center">在进行递归匹配的时候排除的文件夹，用多次参数指定多个目录</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-d 动作, –directories=动作</td>
-      <td style="text-align: center">处理目录的方式:<动作> 可以是 "read"、"recurse" 或 "skip",<动作> 可以是 "read" 或 "ski,</动作></动作></td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-b</td>
-      <td style="text-align: center">输出结果的同时打印字节偏移量</td>
-    </tr>
-  </tbody>
-</table>
-
-<h3 id="sed">sed</h3>
-<hr />
-
-<p>操作、过滤和转换文本的强大工具</p>
-
-<ul>
-  <li>一次读取一行，放入sed工作车间（模式车间，文本数据读入内存）</li>
-  <li>模式匹配
-    <ul>
-      <li>匹配失败（默认输出到屏幕）</li>
-      <li>匹配成功（编辑，输出到屏幕）</li>
-    </ul>
-  </li>
-</ul>
-
-<p>语法</p>
-
-<ul>
-  <li>sed [ 选项 ]   [ sed内置命令字符 ]  [ 输入文件 ]</li>
-  <li>注意内置命令字符需要单引号括起来</li>
-  <li>内置命令中顺序为
-    <ul>
-      <li>[ 范围命令]</li>
-      <li>注意范围与命令之间，命令与命令之间无需分隔</li>
-    </ul>
-  </li>
-</ul>
-
-<p>选项</p>
-
-<table>
-  <thead>
-    <tr>
-      <th style="text-align: center">参数</th>
-      <th style="text-align: center">功能</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="text-align: center">-n</td>
-      <td style="text-align: center">取消默认sed的输出,常与内置命令p一起使用</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-i</td>
-      <td style="text-align: center">直接将修改结果写入文件,不用-i,sed修改的是内存数据</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-e</td>
-      <td style="text-align: center">多次编辑,不需要再管管道符,一个命令脚本一个-e</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">-r</td>
-      <td style="text-align: center">支持扩展正则</td>
-    </tr>
-  </tbody>
-</table>
-
-<p>内置命令</p>
-
-<table>
-  <thead>
-    <tr>
-      <th style="text-align: center">命令</th>
-      <th style="text-align: center">功能</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="text-align: center">s/正则/替换内容/g</td>
-      <td style="text-align: center">匹配正则内容并替换（支持正则）,结尾g表示全局匹配，将小写转换为大写s/[aeiou]/\u&amp;/g或者y/aeiou/AEIOU/</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">a</td>
-      <td style="text-align: center">append,对文本追加,在指定行后面添加一行或者多行文本(可以使用换行符)</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">d</td>
-      <td style="text-align: center">Delete,删除匹配行</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">i</td>
-      <td style="text-align: center">insert,表示插入文本,在指定行前添加一行/多行文本</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">p</td>
-      <td style="text-align: center">print,打印匹配行的内容,通常与-n一起使用</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">s/正则/替换内容/g</td>
-      <td style="text-align: center">匹配正则内容并替换（支持正则）,结尾g表示全局匹配</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">Q</td>
-      <td style="text-align: center">sed立即退出，不再处理，之前的将输出</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">N</td>
-      <td style="text-align: center">读取下一行并加入模式空间，即模式空间拥有当前行和下一行</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">P</td>
-      <td style="text-align: center">打印模式空间第一行，当前行</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">D</td>
-      <td style="text-align: center">删除模式空间第一行，并循环处理剩余部分，如果模式空间为空，则读取下一行</td>
-    </tr>
-  </tbody>
-</table>
-
-<p>sed匹配范围</p>
-
-<table>
-  <thead>
-    <tr>
-      <th style="text-align: center">范围</th>
-      <th style="text-align: center">解释</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="text-align: center">空地址(不加数字)</td>
-      <td style="text-align: center">全文处理</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">单地址(一个数字)</td>
-      <td style="text-align: center">指定文件的某一行</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">/pattern/</td>
-      <td style="text-align: center">被模式匹配到的每一行，如果不表示范围的话，在两个正则表达式之间需要分号隔开</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">范围区间</td>
-      <td style="text-align: center">10,20 10到20行;10,+5第10行向下5行,/pattern1/, /pattern2/; ‘n,4’表示第n行到结尾,包括第n行</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">步长</td>
-      <td style="text-align: center">1~2,表示1、3、5、7、9行,2~2表示2、4、5、6、8、10偶数行</td>
-    </tr>
-  </tbody>
-</table>
-
-<p>注意</p>
-<ul>
-  <li>在sed中，单引号和双引号有所不同,如果要在pattern,command中使用变量，那么最好使用双引号，如果不用变量可以使用单引号</li>
-</ul>
-
-<h3 id="awk">awk</h3>
-<hr />
-<p>更适合编辑、处理匹配到的文本内容</p>
-
-<p>使用语法</p>
-<ul>
-  <li>awk [ option ] ‘pattern[action]’ file …</li>
-  <li>awk 参数 ‘条件动作’ 文件</li>
-  <li>awk options ‘pattern {action}’ file</li>
-  <li>参数中的模式代表，条件或者正则等模式，条件包括对行限定等</li>
-</ul>
-
-<p>内置变量</p>
-
-<table>
-  <thead>
-    <tr>
-      <th style="text-align: center">形式</th>
-      <th style="text-align: center">解释</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="text-align: center">$n</td>
-      <td style="text-align: center">指定分隔符后,当前记录的第n个字段</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">$0</td>
-      <td style="text-align: center">完整的输入记录，整行</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">FS</td>
-      <td style="text-align: center">字段分隔符,默认是空格</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">NF(number of fields )</td>
-      <td style="text-align: center">分割后,当前行一共有多少个字段</td>
-    </tr>
-    <tr>
-      <td style="text-align: center">NR ( Number of records)</td>
-      <td style="text-align: center">当前记录数,行数</td>
-    </tr>
-  </tbody>
-</table>
-
-<p>注意</p>
-<ul>
-  <li>使用-F “ ”指定分隔符时，可以使用”[多个分隔符]”方括号来使用多个分隔符</li>
-</ul>]]></content><author><name>Feng kunjiang</name><email>fkj_monster@163.com</email></author><category term="Linux" /><category term="Text" /><summary type="html"><![CDATA[正则表达式(Regular Expression)]]></summary></entry></feed>
+<p>未完………………</p>]]></content><author><name>Feng kunjiang</name><email>fkj_monster@163.com</email></author><category term="bioinformatics" /><category term="sv" /><category term="vcf" /><summary type="html"><![CDATA[结构变异种类 INFO字段: SVTYPE]]></summary></entry></feed>
